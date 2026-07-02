@@ -130,6 +130,7 @@ def PotentiostatScript_Calib():
             try:
                 arduino = serial.Serial(portList.get(), baudrate = 115200, timeout=.1)
                 time.sleep(2)
+                arduino.reset_input_buffer()  # Flush any bootloader garbage
                 randfloat  = 11.01
                 SEND_BYTES = b'\x44\x66' + struct.pack('f', randfloat)
                 arduino.write(SEND_BYTES)
@@ -169,8 +170,8 @@ def PotentiostatScript_Calib():
             E_3          =  0.0        # Reqired to include to mis-use the CA script in the Arduino
             E_4          =  0.0        # Reqired to include to mis-use the CA script in the Arduino
             E_5          =  0.0        # Reqired to include to mis-use the CA script in the Arduino
-            t_1          =  5000.0     # time of step in ms
-            t_2          =  5000.0     # time of step in ms
+            t_1          =  5000.0     # time of step in ms (CA script convention)
+            t_2          =  5000.0     # time of step in ms (CA script convention)
             t_3          =  0.0        # Reqired to include to mis-use the CA script in the Arduino
             t_4          =  0.0        # Reqired to include to mis-use the CA script in the Arduino
             t_5          =  0.0        # Reqired to include to mis-use the CA script in the Arduino
@@ -179,43 +180,26 @@ def PotentiostatScript_Calib():
             #---------------------------------------------------
             # Prepare sending the Info to Arduino
             #---------------------------------------------------
-            SEND_E_1   = b'\x12' + b'\x17' + struct.pack('f', E_1)          # b'\x12' means modify CA params. Rest, look in Arduino script
-            SEND_E_2   = b'\x12' + b'\x18' + struct.pack('f', E_2)          # b'\x12' means modify CA params. Rest, look in Arduino script
-            SEND_E_3   = b'\x12' + b'\x19' + struct.pack('f', E_3)          # b'\x12' means modify CA params. Rest, look in Arduino script
-            SEND_E_4   = b'\x12' + b'\x20' + struct.pack('f', E_4)          # b'\x12' means modify CA params. Rest, look in Arduino script
-            SEND_E_5   = b'\x12' + b'\x21' + struct.pack('f', E_5)          # b'\x12' means modify CA params. Rest, look in Arduino script
-            SEND_t_1   = b'\x12' + b'\x22' + struct.pack('f', t_1)          # b'\x12' means modify CA params. Rest, look in Arduino script
-            SEND_t_2   = b'\x12' + b'\x23' + struct.pack('f', t_2)          # b'\x12' means modify CA params. Rest, look in Arduino script
-            SEND_t_3   = b'\x12' + b'\x24' + struct.pack('f', t_3)          # b'\x12' means modify CA params. Rest, look in Arduino script
-            SEND_t_4   = b'\x12' + b'\x25' + struct.pack('f', t_4)          # b'\x12' means modify CA params. Rest, look in Arduino script
-            SEND_t_5   = b'\x12' + b'\x26' + struct.pack('f', t_5)          # b'\x12' means modify CA params. Rest, look in Arduino script
-            SEND_REP   = b'\x12' + b'\x27' + struct.pack('f', Repetitions)  # b'\x12' means modify CA params. Rest, look in Arduino script
-            
+            SEND_E_1   = b'\x12' + b'\x17' + struct.pack('f', E_1) + b'\x00\x00'
+            SEND_E_2   = b'\x12' + b'\x18' + struct.pack('f', E_2) + b'\x00\x00'
+            SEND_E_3   = b'\x12' + b'\x19' + struct.pack('f', E_3) + b'\x00\x00'
+            SEND_E_4   = b'\x12' + b'\x20' + struct.pack('f', E_4) + b'\x00\x00'
+            SEND_E_5   = b'\x12' + b'\x21' + struct.pack('f', E_5) + b'\x00\x00'
+            SEND_t_1   = b'\x12' + b'\x22' + struct.pack('f', t_1) + b'\x00\x00'
+            SEND_t_2   = b'\x12' + b'\x23' + struct.pack('f', t_2) + b'\x00\x00'
+            SEND_t_3   = b'\x12' + b'\x24' + struct.pack('f', t_3) + b'\x00\x00'
+            SEND_t_4   = b'\x12' + b'\x25' + struct.pack('f', t_4) + b'\x00\x00'
+            SEND_t_5   = b'\x12' + b'\x26' + struct.pack('f', t_5) + b'\x00\x00'
+            SEND_REP   = b'\x12' + b'\x27' + struct.pack('f', Repetitions) + b'\x00\x00'
             #---------------------------------------------------
-            # Start sending the Info to Arduino
+            # Send packets to Arduino (8 bytes each, 50ms delay)
             #---------------------------------------------------
-            arduino.write(SEND_E_1)
-            time.sleep(2) 
-            arduino.write(SEND_E_2)
-            time.sleep(2) 
-            arduino.write(SEND_E_3)
-            time.sleep(2) 
-            arduino.write(SEND_E_4)
-            time.sleep(2) 
-            arduino.write(SEND_E_5)
-            time.sleep(2) 
-            arduino.write(SEND_t_1)
-            time.sleep(2) 
-            arduino.write(SEND_t_2)
-            time.sleep(2) 
-            arduino.write(SEND_t_3)
-            time.sleep(2) 
-            arduino.write(SEND_t_4)
-            time.sleep(2) 
-            arduino.write(SEND_t_5)
-            time.sleep(2) 
-            arduino.write(SEND_REP)
-            time.sleep(2) 
+            pkts = [SEND_E_1, SEND_E_2, SEND_E_3, SEND_E_4, SEND_E_5,
+                        SEND_t_1, SEND_t_2, SEND_t_3, SEND_t_4, SEND_t_5, SEND_REP]
+            for i, pkt in enumerate(pkts):
+                arduino.write(pkt)
+                time.sleep(0.05)
+
             #-----------------------------------------------------
             # In case of successful transmission, print statement   
             #-----------------------------------------------------
@@ -240,21 +224,56 @@ def PotentiostatScript_Calib():
         def _do_work():
             Set_Calib_Params()
             Storage_Array_local = np.zeros((1,5))
-            SEND_BYTES = b'\x14\x00\x00\x00\x00\x00'
+            SEND_BYTES = b'\x14\x00\x00\x00\x00\x00\x00\x00'
             arduino.write(SEND_BYTES)
-            time.sleep(3)
-            Starter = arduino.readline()[:-2]
-            while Starter != b'10101010':
-                time.sleep(0.001)
-                Starter = arduino.readline()[:-2]
+            # Read raw bytes until 999999 arrives
+            raw = b''
+            while b'999999' not in raw:
+                n = arduino.in_waiting
+                if n > 0:
+                    raw += arduino.read(n)
+                else:
+                    time.sleep(0.05)
+            # Parse raw bytes
+            text = raw.decode('utf-8', errors='ignore')
+            # Find data between 10101010 and 999999
+            start = text.find('10101010')
+            end = text.find('999999')
+            if start >= 0 and end > start:
+                data_section = text[start+8:end]
+                for line in data_section.split('\r\n'):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    parts = line.split('\t')
+                    if len(parts) == 5:
+                        try:
+                            row = [float(p) for p in parts]
+                            Storage_Array_local = np.vstack([Storage_Array_local, row])
+                        except ValueError:
+                            pass
             return Storage_Array_local
         def _on_work_done(storage):
             global running, file_error, Data_Collected, Storage_Array
             CalRun_btn.config(state='normal')
             Storage_Array  = storage
-            running        = True
             file_error     = True
             Data_Collected = True
+            # Write calibration data to file
+            for i in range(len(storage[::,0])-1):
+                outfile_Calib_Data.write(str(storage[i+1,0]))
+                outfile_Calib_Data.write("\t")
+                outfile_Calib_Data.write(str(storage[i+1,1]))
+                outfile_Calib_Data.write("\t")
+                outfile_Calib_Data.write(str(0.001*storage[i+1,2]))
+                outfile_Calib_Data.write("\t")
+                outfile_Calib_Data.write(str(storage[i+1,3]))
+                outfile_Calib_Data.write("\t")
+                outfile_Calib_Data.write(str(storage[i+1,4]))
+                outfile_Calib_Data.write("\n")
+            outfile_Calib_Data.close()
+            Write_Output_Calib('\n Calibration completed successfully! File saved.')
+            running = False
         def _on_work_error(err):
             CalRun_btn.config(state='normal')
             messagebox.showerror(title="Incomplete Parameters!",
