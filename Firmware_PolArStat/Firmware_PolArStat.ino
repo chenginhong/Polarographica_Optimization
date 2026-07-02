@@ -132,11 +132,13 @@ void CellOff(){
     digitalWrite(2, LOW);            // switch off the  Cell-on Relay
     digitalWrite(5, 0);              // switch off the  Cell-on LED
     //-------------------------------------------------------
-    // brief blink to indicate measurement done
+    // blink three times to indicate measurement done
     //-------------------------------------------------------
-    digitalWrite(5, HIGH);
-    delay(50);
-    digitalWrite(5, LOW);}
+    for(int Blinker = 0; Blinker <= 2; Blinker++){
+          digitalWrite(5, HIGH);
+          delay(500);
+          digitalWrite(5, LOW);
+          delay(500);}}
 //==============================================================================================================================================================
 //==============================================================================================================================================================
 // This function is used to write the serial data from the potentiostat for CV and send it to the PC. Should be self-explaning :)
